@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Añadir nombres</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 20px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #contador-container{
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+      padding: 20px;
+      margin: auto;
+    }
+
+    .grande{
+      font-size: 1.2rem;
+      padding: 16px 32px;
+    }
+    .muerte{
+      font-size: 1.5rem;
+      padding: 10px 20px;
+      background: #cf1414;
+      color:white;
+    }
+    .muerte:hover{
+      background: #600404;
+    }
+
+    h1 {
+      margin-bottom: 24px;
+      color: #df3131;
+      text-align: center;
+    }
+
+    button {
+      background: #1976d2;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      margin: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1565c0;
+    }
+
+    #contador {
+      font-size: 2rem;
+      min-width: 80px;
+    }
+
+    .lista {
+      margin-top: 20px;
+      padding: 0;
+      list-style: none;
+    }
+    .lista li {
+      background: #f0f0f0;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .acciones {
+      display: flex;
+      gap: 6px;
+    }
+
+    @media (min-width: 600px) {
+      #contador {
+        font-size: 3rem;
+        min-width: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Lista de nombres</h1>
+
+  <input type="text" id="nombreInput" placeholder="Escribe un nombre">
+  <button id="btnAgregar">Agregar</button>
+
+  <div id="contador-container">
+    <span id="contador">10</span>
+    <div class="botones">
+      <button class="grande" id="btn-menos">-0.1</button>
+      <button class="grande" id="btn-mas">+0.1</button>
+      <button class="muerte" id="btn-muerte">💀</button>
+    </div>
+    <ul id="listaNombres" class="lista"></ul>
+  </div>
+
+  <script>
+    // =====================
+    // Contador
+    // =====================
+    let contador = 10;
+    const spanContador = document.getElementById("contador");
+    const btnMas = document.getElementById("btn-mas");
+    const btnMenos = document.getElementById("btn-menos");
+    const btnMuerte = document.getElementById("btn-muerte");
+
+    btnMuerte.addEventListener("click", () => {
+      contador = 0;
+      actualizarContador();
+    });
+
+    function actualizarContador() {
+      contador = Math.min(Math.max(contador, 0), 10);
+      spanContador.textContent = contador;
+
+      if (contador == 0) {
+        spanContador.style.color = "purple";
+      } else if (contador <= 3) {
+        spanContador.style.color = "red";
+      } else if (contador <= 5) {
+        spanContador.style.color = "orange";
+      } else {
+        spanContador.style.color = "green";
+      }
+    }
+
+    btnMas.addEventListener("click", () => {
+      contador= Math.round((contador + 0.1) * 10) / 10;
+      actualizarContador();
+    });
+
+    btnMenos.addEventListener("click", () => {
+      contador= Math.round((contador - 0.1) * 10) / 10;
+      actualizarContador();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp") {
+        contador = Math.round((contador + 0.1) * 10) / 10;
+        actualizarContador();
+      } else if (e.key === "ArrowDown") {
+        contador = Math.round((contador - 0.1) * 10) / 10;
+        actualizarContador();
+      }
+    });
+
+    actualizarContador();
+
+    // =====================
+    // Gestión de nombres
+    // =====================
+    const input = document.getElementById("nombreInput");
+    const btn = document.getElementById("btnAgregar");
+    const lista = document.getElementById("listaNombres");
+
+    let nombres = [];
+
+    btn.addEventListener("click", () => {
+      const nombre = input.value.trim();
+      if (nombre !== "") {
+        nombres.push(nombre);
+        input.value = "";
+        input.focus();
+        mostrarNombres();
+      }
+    });
+
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") btn.click();
+    });
+
+    function mostrarNombres() {
+      lista.innerHTML = "";
+      nombres.forEach((n, index) => {
+        const li = document.createElement("li");
+
+        const texto = document.createElement("span");
+        texto.textContent = n;
+
+        const acciones = document.createElement("div");
+        acciones.classList.add("acciones");
+
+        // Botón editar
+        const btnEditar = document.createElement("button");
+        btnEditar.textContent = "✏️";
+        btnEditar.addEventListener("click", () => {
+          const nuevo = prompt("Editar nombre:", n);
+          if (nuevo && nuevo.trim() !== "") {
+            nombres[index] = nuevo.trim();
+            mostrarNombres();
+          }
+        });
+
+        // Botón borrar
+        const btnBorrar = document.createElement("button");
+        btnBorrar.textContent = "🗑️";
+        btnBorrar.addEventListener("click", () => {
+          nombres.splice(index, 1);
+          mostrarNombres();
+        });
+
+        acciones.appendChild(btnEditar);
+        acciones.appendChild(btnBorrar);
+
+        li.appendChild(texto);
+        li.appendChild(acciones);
+        lista.appendChild(li);
+      });
+    }
+  </script>
+</body>
+</html>

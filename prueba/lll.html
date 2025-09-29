@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contadores por Persona</title>
+  <style>
+:root{
+  --bg:#f7f7fa;
+  --card:#ffffff;
+  --text:#1b1b1f;
+  --muted:#666;
+  --border:#e6e6ef;
+  --accent:#2f6fed;
+  --accent-weak:#e8efff;
+}
+
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color:var(--text); background: var(--bg);
+}
+
+.topbar{
+  display:flex; gap:1rem; align-items:center; justify-content:space-between;
+  padding:1rem 1.25rem; border-bottom:1px solid var(--border); background:#fff;
+}
+.topbar h1{ margin:0; font-size:1.25rem; }
+.acciones{ display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+
+button, .file-label{
+  border:1px solid var(--border); background:#fff; color:var(--text);
+  padding:.35rem .65rem; border-radius:.65rem; cursor:pointer;
+  transition: transform .06s ease, background .2s ease, box-shadow .2s ease;
+  font-size:0.9rem;
+}
+button:hover, .file-label:hover{ background:var(--accent-weak); }
+button:active, .file-label:active{ transform: translateY(1px); }
+.file-label{ display:inline-flex; align-items:center; gap:.5rem; }
+.file-label input{ display:none; }
+
+main{ padding:1rem; max-width:1100px; margin:0 auto; }
+#estado{ margin:.5rem 0 1rem; color:var(--muted); min-height:1.25rem; }
+
+.add-nombre{
+  display:flex; gap:.5rem; margin-bottom:1rem;
+}
+.add-nombre input{
+  flex:1; padding:.5rem; border:1px solid var(--border);
+  border-radius:.5rem;
+}
+
+.grid{
+  display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap:1rem;
+}
+
+.card{
+  background:var(--card); border:1px solid var(--border); border-radius:1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  padding:1rem;
+}
+.card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem; }
+.nombre{ font-size:1.1rem; margin:0; }
+
+.contador-wrap{
+  display:flex; flex-direction:column; align-items:center; gap:.5rem;
+}
+.contador{
+  font-size:2rem; font-variant-numeric: tabular-nums;
+  min-width:3ch; text-align:center;
+  transition: transform .15s ease, color .15s ease;
+}
+.contador.bump{ transform: scale(1.08); }
+
+.botones{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:.25rem;
+}
+.btn.redondeado{ border-radius:999px; }
+.btn-muerte{ background:#cf1414; color:#fff; border:none; }
+.btn-muerte:hover{ background:#600404; }
+
+.acciones-card{ display:flex; gap:.25rem; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Contadores de Clase</h1>
+    <div class="acciones">
+      <button id="btn-cargar-nombres">Cargar nombres (nombres.txt)</button>
+      <label class="file-label">
+        <input type="file" id="input-archivo" accept=".txt,.json" />
+        Cargar archivo local
+      </label>
+      <button id="btn-reset">Reiniciar todos a 10</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="add-nombre">
+      <input type="text" id="nombreInput" placeholder="Escribe un nombre">
+      <button id="btnAgregar">Agregar</button>
+    </section>
+
+    <section id="estado" aria-live="polite"></section>
+    <section id="lista" class="grid"></section>
+  </main>
+
+  <template id="tpl-persona">
+    <article class="card persona" data-nombre="">
+      <header class="card-head">
+        <h2 class="nombre"></h2>
+        <div class="acciones-card">
+          <button class="btn-editar">✏️</button>
+          <button class="btn-borrar">🗑️</button>
+        </div>
+      </header>
+      <div class="contador-wrap">
+        <span class="contador" data-valor="10" aria-live="polite">10</span>
+        <div class="botones">
+          <button class="btn redondeado btn-menos">−1</button>
+          <button class="btn redondeado btn-mas">+1</button>
+          <button class="btn redondeado btn-menos-dec">−0.1</button>
+          <button class="btn redondeado btn-mas-dec">+0.1</button>
+          <button class="btn btn-muerte">💀</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script>
+const STORAGE_KEY = "contadoresClase";
+const estado = new Map();
+const lista = document.getElementById("lista");
+const estadoUI = document.getElementById("estado");
+const btnCargar = document.getElementById("btn-cargar-nombres");
+const btnReset = document.getElementById("btn-reset");
+const inputArchivo = document.getElementById("input-archivo");
+const tpl = document.getElementById("tpl-persona");
+const input = document.getElementById("nombreInput");
+const btnAgregar = document.getElementById("btnAgregar");
+
+// ======== Utilidades ========
+function normalizaNombre(s) {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+}
+
+function aplicaColor(span, valor) {
+  if (valor === 0) {
+    span.style.color = "purple";
+  } else if (valor <= 3) {
+    span.style.color = "red";
+  } else if (valor <= 5) {
+    span.style.color = "orange";
+  } else {
+    span.style.color = "green";
+  }
+}
+
+function guardarEnStorage() {
+  const obj = Object.fromEntries(estado.entries());
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+}
+
+function cargarDeStorage() {
+  const data = localStorage.getItem(STORAGE_KEY);
+  if (!data) return;
+  try {
+    const obj = JSON.parse(data);
+    for (const [k, v] of Object.entries(obj)) {
+      estado.set(k, v);
+    }
+  } catch (e) {
+    console.error("Error leyendo localStorage", e);
+  }
+}
+
+// ======== Render ========
+function renderPersona(nombre, valor = 10) {
+  const node = tpl.content.firstElementChild.cloneNode(true);
+  node.dataset.nombre = nombre;
+  node.querySelector(".nombre").textContent = nombre;
+  const span = node.querySelector(".contador");
+  span.textContent = valor;
+  span.dataset.valor = String(valor);
+  aplicaColor(span, valor);
+  return node;
+}
+
+function bump(el) {
+  el.classList.add("bump");
+  setTimeout(() => el.classList.remove("bump"), 160);
+}
+
+function renderLista() {
+  lista.innerHTML = "";
+  const nombres = Array.from(estado.keys()).sort((a, b) =>
+    normalizaNombre(a).localeCompare(normalizaNombre(b))
+  );
+  for (const n of nombres) {
+    const v = estado.get(n) ?? 10;
+    lista.appendChild(renderPersona(n, v));
+  }
+}
+
+// ======== Estado UI ========
+function setEstado(msg) {
+  estadoUI.textContent = msg ?? "";
+}
+
+// ======== Carga externa ========
+async function cargarNombresDesdeTxt(url = "nombres.txt") {
+  setEstado("Cargando nombres…");
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`No se pudo leer ${url}`);
+  const text = await res.text();
+  let nombres;
+  if (url.endsWith(".json")) {
+    const arr = JSON.parse(text);
+    nombres = Array.isArray(arr) ? arr : [];
+  } else {
+    nombres = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  }
+  if (nombres.length === 0) throw new Error("El archivo no contiene nombres.");
+  for (const n of nombres) {
+    if (!estado.has(n)) estado.set(n, 10);
+  }
+  guardarEnStorage();
+  renderLista();
+  setEstado(`Cargados ${nombres.length} nombres.`);
+}
+
+async function cargarDesdeArchivoLocal(file) {
+  const text = await file.text();
+  let nombres;
+  if (file.name.endsWith(".json")) {
+    const arr = JSON.parse(text);
+    nombres = Array.isArray(arr) ? arr : [];
+  } else {
+    nombres = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  }
+  if (nombres.length === 0) throw new Error("El archivo no contiene nombres.");
+  for (const n of nombres) {
+    if (!estado.has(n)) estado.set(n, 10);
+  }
+  guardarEnStorage();
+  renderLista();
+  setEstado(`Cargados ${nombres.length} nombres desde archivo local.`);
+}
+
+// ======== Interacción ========
+lista.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button");
+  if (!btn) return;
+  const card = btn.closest(".persona");
+  if (!card) return;
+  const nombre = card.dataset.nombre;
+  if (!estado.has(nombre)) return;
+  const span = card.querySelector(".contador");
+  let valor = Number(span.dataset.valor || "10");
+
+  if (btn.classList.contains("btn-mas")) valor += 1;
+  if (btn.classList.contains("btn-menos")) valor -= 1;
+  if (btn.classList.contains("btn-mas-dec")) valor = Math.round((valor + 0.1) * 10) / 10;
+  if (btn.classList.contains("btn-menos-dec")) valor = Math.round((valor - 0.1) * 10) / 10;
+  if (btn.classList.contains("btn-muerte")) valor = 0;
+
+  if (btn.classList.contains("btn-borrar")) {
+    estado.delete(nombre);
+    guardarEnStorage();
+    renderLista();
+    return;
+  }
+  if (btn.classList.contains("btn-editar")) {
+    const nuevo = prompt("Editar nombre:", nombre);
+    if (nuevo && nuevo.trim() !== "") {
+      const valorActual = estado.get(nombre);
+      estado.delete(nombre);
+      estado.set(nuevo.trim(), valorActual);
+      guardarEnStorage();
+      renderLista();
+    }
+    return;
+  }
+
+  valor = Math.min(Math.max(valor, 0), 10);
+
+  estado.set(nombre, valor);
+  span.dataset.valor = String(valor);
+  span.textContent = valor;
+  aplicaColor(span, valor);
+  bump(span);
+  guardarEnStorage();
+});
+
+btnReset.addEventListener("click", () => {
+  for (const n of estado.keys()) estado.set(n, 10);
+  guardarEnStorage();
+  renderLista();
+  setEstado("Todos los contadores han sido reiniciados a 10.");
+});
+
+btnCargar.addEventListener("click", async () => {
+  try {
+    await cargarNombresDesdeTxt("nombres.txt");
+  } catch (err) {
+    console.error(err);
+    setEstado("No se pudo cargar nombres.txt. Usa 'Cargar archivo local'.");
+  }
+});
+
+inputArchivo.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    await cargarDesdeArchivoLocal(file);
+  } catch (err) {
+    console.error(err);
+    setEstado("No se pudo leer el archivo local.");
+  } finally {
+    inputArchivo.value = "";
+  }
+});
+
+btnAgregar.addEventListener("click", () => {
+  const nombre = input.value.trim();
+  if (nombre !== "" && !estado.has(nombre)) {
+    estado.set(nombre, 10);
+    guardarEnStorage();
+    renderLista();
+    input.value = "";
+    input.focus();
+  }
+});
+
+input.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") btnAgregar.click();
+});
+
+// ======== Bootstrap ========
+cargarDeStorage();
+if (estado.size > 0) {
+  renderLista();
+} else {
+  cargarNombresDesdeTxt("nombres.txt").catch(() => {
+    setEstado("Consejo: coloca un nombres.txt junto a esta página o usa 'Cargar archivo local'.");
+  });
+}
+  </script>
+</body>
+</html>

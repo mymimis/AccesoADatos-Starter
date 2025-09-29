@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Añadir nombres</title>
+  <style>
+    /*body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }*/
+    .lista {
+      margin-top: 20px;
+      padding: 0;
+      list-style: none;
+    }
+    .lista li {
+      background: #f0f0f0;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Lista de nombres</h1>
+
+  <input type="text" id="nombreInput" placeholder="Escribe un nombre">
+  <button id="btnAgregar">Agregar</button>
+    <ul id="listaNombres" class="lista"></ul>
+</div>
+  <script>
+   const input = document.getElementById("nombreInput");
+    const btn = document.getElementById("btnAgregar");
+    const lista = document.getElementById("listaNombres");
+
+    btn.addEventListener("click", () => {
+      const nombre = input.value.trim();
+
+      if (nombre !== "") {
+        const li = document.createElement("li");
+        li.textContent = nombre;
+        lista.appendChild(li);
+
+        input.value = ""; // limpiar el input
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
